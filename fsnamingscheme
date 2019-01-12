@@ -1,0 +1,8 @@
+00=NULL
+01=free
+02=used
+03=directory
+
+free = 01,sector,size
+used = 02,sector,size,parentdirectoryid
+directory = 03,directoryid,null,parentdirectoryid
