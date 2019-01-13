@@ -1,6 +1,7 @@
 org 0x7e00
 bits 16
 
+;init
 mov ax, cs
 mov ds, ax
 mov es,ax
@@ -17,9 +18,12 @@ mov [0x6008],word clear
 mov [0x600a],word doshutdown
 mov [0x600c],word doreboot
 call loadfs
+call getbindir
 mov si,loadedmsg
 call print
 jmp main
+
+
 print:
   mov ah,0xe
   .loop mov al,[si]
@@ -231,11 +235,22 @@ dorun:
   mov [arg1],word 0xa000
   call loadfile
   cmp byte [returnstatus],0x0
-  jne .norun
-  call 0xa000
+  je .run
+  mov al,[curdir]
+  mov [.tmp],al
+  mov al,[bindir]
+  mov [curdir],al
+  call loadfile
+  mov al,[.tmp]
+  mov [curdir],al
+  cmp byte [returnstatus],0x0
+  je .run
+  ret
+  .tmp db 0x0
+  .run call 0xa000
   mov si,newline
   call print
-  .norun ret
+  ret
 
 chdir:
   mov dx,si
@@ -264,6 +279,17 @@ chdir:
   .nochdir mov si,nosuchdir
   call print
   .noaction ret
+
+getbindir:
+  mov si,binstr
+  call loadfile
+  cmp [returnstatus],byte 0x3
+  jne .nobindir
+  mov [bindir],al
+  ret
+  .nobindir mov si,nobindirstr
+  call print
+  ret
 
 getparentdir:
   mov bx,0x4000;where fs starts
@@ -361,6 +387,9 @@ nofile: db "No file/directory specified",0xa,0x0
 nosuchfile: db "No such file",0xa,0x0
 nosuchdir: db "No such directory",0xa,0x0
 curdir: db 0x0
+bindir: db 0x0
+binstr: db "bin",0x0
+nobindirstr: db "No binaries directory found!",0xa,0x0
 arg1: dw 0x0
 rootstr: db "/",0x0
 parentstr: db "..",0x0

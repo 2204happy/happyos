@@ -21,7 +21,7 @@ fninput: mov si,bootmsg
 call print
 mov bx,0x7e00
 mov ah,0x2
-mov al,0x2
+mov al,0x4
 mov ch,0x0
 mov cl,0x2
 mov dh,0x0
