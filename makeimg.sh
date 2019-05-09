@@ -11,3 +11,9 @@ dd if=quickhello of=os.img conv=notrunc seek=7
 rm quickhello
 dd if=textdoc of=os.img conv=notrunc seek=8
 dd if=stantwt of=os.img conv=notrunc seek=9
+nasm quickgb.asm
+dd if=quickgb of=os.img conv=notrunc seek=11
+rm quickgb
+nasm showhex.asm
+dd if=showhex of=os.img conv=notrunc seek=12
+rm showhex

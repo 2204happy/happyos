@@ -180,7 +180,7 @@ loadfile:;argument1 for where to load to
   jz .noargs
   mov bx,0x4000;where the fs begins
   mov cx,si;save the begining of the argument
-  .loop mov dx,bx;save bx value 
+  .loop mov dx,bx;save bx value
     mov ah,[bx]
     or ah,ah
     jz .end;if it reaches a zero it is at the end of the fs
@@ -236,6 +236,7 @@ dorun:
   call loadfile
   cmp byte [returnstatus],0x0
   je .run
+  mov si,0x5600
   mov al,[curdir]
   mov [.tmp],al
   mov al,[bindir]
@@ -243,14 +244,25 @@ dorun:
   call loadfile
   mov al,[.tmp]
   mov [curdir],al
+  mov dh, [returnstatus]
+  mov [.rtsave],dh
   cmp byte [returnstatus],0x0
   je .run
   ret
   .tmp db 0x0
-  .run call 0xa000
+  .run mov si,0x5600
+  .getargs cmp [si],byte 0x0
+  je .gotargs
+  inc si
+  jmp .getargs
+  .gotargs inc si
+  call 0xa000
+  mov dh, [.rtsave]
+  mov [returnstatus],dh
   mov si,newline
   call print
   ret
+  .rtsave db 0x0
 
 chdir:
   mov dx,si
@@ -393,5 +405,6 @@ nobindirstr: db "No binaries directory found!",0xa,0x0
 arg1: dw 0x0
 rootstr: db "/",0x0
 parentstr: db "..",0x0
+loopdebug: db "loopdebug",0x0
 
 times 2048-($-$$) db 0x0
