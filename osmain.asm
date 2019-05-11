@@ -17,6 +17,7 @@ mov [0x6006],word doshow
 mov [0x6008],word clear
 mov [0x600a],word doshutdown
 mov [0x600c],word doreboot
+mov [0x600e],word resolvedir
 call loadfs
 call getbindir
 mov si,loadedmsg
@@ -233,7 +234,7 @@ loadfile:;argument1 for where to load to
 
 dorun:
   mov [arg1],word 0xa000
-  call loadfile
+  call resolvedir
   cmp byte [returnstatus],0x0
   je .run
   mov si,0x5600
@@ -257,8 +258,7 @@ dorun:
   jmp .getargs
   .gotargs inc si
   call 0xa000
-  mov dh, [.rtsave]
-  mov [returnstatus],dh
+  mov [returnstatus],byte 0x0
   mov si,newline
   call print
   ret
@@ -283,7 +283,7 @@ chdir:
   mov [curdir],ah
   ret
   .notparent mov [arg1],word 0x0000
-  call loadfile
+  call resolvedir
   cmp byte [returnstatus],0x3
   jne .nochdir
   mov [curdir],al
@@ -291,6 +291,57 @@ chdir:
   .nochdir mov si,nosuchdir
   call print
   .noaction ret
+
+resolvedir:
+  mov [.endfull],byte 0x0
+  mov dl,[curdir]
+  mov [.svdir],dl
+  mov dx,si
+  cmp [si],byte "/"
+  jne .noroot
+  mov [curdir],byte 0x0
+  inc si
+  .noroot mov bx,si
+  .loop cmp [si],byte "/"
+    je .endofstrwslash
+    cmp [si],byte 0x0
+    je .endofstrwnull
+    inc si
+    jmp .loop
+    .endofstr mov [si],byte 0x0
+      .endofstr2 mov [.sisave],si
+      ;mov ah,0xe
+      ;mov al,"P"
+      ;int 0x10
+      mov si,bx
+      call loadfile
+      cmp [returnstatus],byte 0x3
+      jne .end
+      mov [curdir],al
+      ;mov ah,0xe
+      ;add al,0x30
+      ;int 0x10
+      ;sub al,0x30
+      mov si,[.sisave]
+      inc si
+      mov bx,si
+      cmp [.endfull],byte 0x1
+      je .end
+      jmp .loop
+  .svdir db 0x0
+  .sisave dw 0x0
+  .endfull db 0x0
+  .endofstrwnull mov [.endfull],byte 0x1
+    jmp .endofstr2
+  .endofstrwslash inc si
+    cmp [si],byte 0x0
+    jne .notend
+    mov [.endfull],byte 0x1
+    .notend dec si
+    jmp .endofstr
+  .end mov dl,[.svdir]
+  mov [curdir],dl
+  ret
 
 getbindir:
   mov si,binstr
@@ -341,7 +392,7 @@ cmpstrings:
 
 doshow:
   mov [arg1],word 0xa000
-  call loadfile
+  call resolvedir
   cmp byte [returnstatus],0x0
   jne .norun
   mov si,0xa000

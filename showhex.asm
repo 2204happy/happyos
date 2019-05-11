@@ -9,7 +9,7 @@ cli
 
 mov bx,[0x5ffa]
 mov [bx],word 0xb000
-call [0x6002]
+call [0x600e]
 mov bx,word [0x5ff8]
 mov dl,[bx]
 ;add al,0x30
