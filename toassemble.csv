@@ -1,0 +1,6 @@
+src/quickgb.asm,/bin/quickgb
+src/quickhello.asm,/bin/quickhello
+src/showhex.asm,/bin/showhex
+src/getdriveparams.asm,/bin/getdparams
+src/mndl.asm,/bin/mndl
+src/flag.asm,/bin/flag
