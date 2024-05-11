@@ -10,4 +10,4 @@ note: will not boot under a UEFI bios
 
 this version contains some of my other assembly projects
 -mndl (mandelbrot fractal viewer)
--flag (Australian flag waving in <512 bytes)
+-flag (Australian flag waving in <1kb)
