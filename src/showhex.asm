@@ -79,9 +79,9 @@ ret
 
 quit: mov si,nofilemsg
 call [0x6000]
-ret
+jmp done
 
 nofilemsg: db "No file found (inprg)",0x0
 inlinetogo: db 0x10
-more: db "Press any key to view more",0x0
+more: db "Press any key to view more, or esc to quit",0x0
 tmp: dw 0x0

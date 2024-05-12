@@ -7,8 +7,10 @@ mov es,ax
 cli
 
 
+mov ax,0x1000
+mov es,ax
 mov bx,[0x5ffa]
-mov [bx],word 0xb000
+mov [bx],word 0x0000
 call [0x600e]
 mov bx,word [0x5ff8]
 mov dl,[bx]
@@ -22,8 +24,8 @@ mov ah,0x0
 mov cx,ax
 shl cx,0x9
 mov dx,0x180
-mov si,0xb000
-loop: mov al,[si]
+mov si,0x0000
+loop: mov al,[es:si]
   mov bl,al
   and al,0xf0
   and bl,0x0f
@@ -71,13 +73,15 @@ loop: mov al,[si]
   int 0x10
   mov dl,0x10
   jmp loop
-done: ret
+done: mov ax,0x0
+mov es,ax
+ret
 
 quit: mov si,nofilemsg
 call [0x6000]
-ret
+jmp done
 
 nofilemsg: db "No file found (inprg)",0x0
 inlinetogo: db 0x10
-more: db "Press any key to view more",0x0
+more: db "Press any key to view more, or esc to quit",0x0
 tmp: dw 0x0

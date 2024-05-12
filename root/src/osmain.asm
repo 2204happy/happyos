@@ -64,7 +64,13 @@ dols:
 
     
 getdiskparams:
-  mov si,getdiskgeomsg
+  mov dl,[driveindex]
+  cmp dl,0x80
+  jae .hd
+  mov si,floppyboot
+  call print
+  ret
+  .hd mov si,getdiskgeomsg
   call print
   mov dx,0x0
   mov es,dx
@@ -88,9 +94,9 @@ getdiskparams:
   call print
   ret
   
-headsno: db 0x0
-sectorspertrack: db 0x0
-hntspt: db 0x0
+headsno: db 0x2
+sectorspertrack: db 0x12
+hntspt: db 0x24
 
 
 
@@ -485,5 +491,6 @@ rootstr: db "/",0x0
 parentstr: db "..",0x0
 loopdebug: db "loopdebug",0x0
 errormsg: db "ERROR!",0x0
+floppyboot: db "Booting from Floppy... (No need to get drive parameters)",0xa,0x0
 
 times 2048-($-$$) db 0x0

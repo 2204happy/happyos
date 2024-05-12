@@ -46,7 +46,7 @@ else:
     if dr != root and dr != root+"/sys":
       d = dirlist[dr]
       if len(d[1]) > 11:
-        print("dir name too long, concatenating")
+        print("dir name too long, truncating")
         d[1] = d[1][0:11]
       fs[fsptr] = 3
       fs[fsptr+1] = d[0]
@@ -67,7 +67,7 @@ else:
      fstream = f.read()
      f.close()
      if len(filei[0]) > 11:
-       print("file name too long, concatenating")
+       print("file name too long, truncating")
        filei[0] = filei[0][0:11]
      size = ((len(fstream)-(len(fstream)%512))/512)+1
      fs[fsptr] = 2
