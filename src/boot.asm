@@ -30,7 +30,6 @@ print:
     jmp loop
   loopend: ret
 
-voltypemsg: db "Are you booting from a (F)loppy or a Hard (D)rive?",0x0
 bootmsg: db 0xa,0xd,"Loading OS...",0xa,0xd,0x0
 
 times 510 - ($ - $$) db 0

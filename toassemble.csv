@@ -5,3 +5,4 @@ src/getdriveparams.asm,/bin/getdparams
 src/mndl.asm,/bin/mndl
 src/flag.asm,/bin/flag
 src/long.asm,/bin/long
+src/advnt.asm,/bin/advnt
