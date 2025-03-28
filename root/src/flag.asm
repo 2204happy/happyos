@@ -16,8 +16,7 @@ starmirrordrawoffset equ 0xb220
 tmp3 equ 0xb222
 
 
-org 0xa000
-
+org 0x0000
 
 
 mov bx,0xb200
@@ -44,7 +43,8 @@ mov es,ax
 mov fs,ax
 mov ax,0x3
 int 0x10
-ret
+mov ah,0x6
+int 0x20
 
 
 genflag:

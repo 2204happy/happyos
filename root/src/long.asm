@@ -1,22 +1,23 @@
-print equ 0x6000
-loadfile equ 0x6002
-arg1 equ 0x5ffa
-resolvedir equ 0x600e
-returnstatus equ 0x5ff8
-
-org 0xa000
 bits 16
 
 
-mov ax,0x1000
+.loop1 cmp [es:si],byte 0x0
+  je .end1
+  inc si
+  jmp .loop1
+.end1 inc si
+
+mov ah,0x8
+int 0x20
+
+cmp cl,0x0
+jne fileNotFound
+
+mov ax,0x2000
 mov es,ax
-mov bx,[arg1]
-mov [bx],word 0x0000
-call [resolvedir]
-mov bx,[returnstatus]
-mov dl,[bx]
-cmp dl,byte 0x0
-jne nofile
+mov di,0x0
+mov ah,0x3
+int 0x20
 
 mov si,0x0
 mov ah,0xe
@@ -50,34 +51,58 @@ mainloop: cmp [es:si],byte 0x0
   .np inc si
   inc byte [colcount]
   jmp mainloop
-
-
-nofile:
-  mov si,fnfstr
-  call [print]
-end: mov ax,0x0
-  mov es,ax
-  ret
   
-waitforpress: pusha
+waitforpress: push es
+  pusha
+  mov ax,cs
+  mov es,ax
   mov si,more
-  call [print]
+  call print
   mov ah,0x0
   int 0x16
   cmp ah,0x1
   jne .noesc
+    mov si,newline
+    call print
     mov [leaving],byte 0x1
     popa
+    pop es
     ret
   .noesc mov si,spaces
-  call [print]
+  call print
   dec byte [rowcount]
   popa
+  pop es
   ret
+  
+fileNotFound:
+  mov ax,cs
+  mov es,ax
+  cmp cl,0x1
+  je .isDirectory
+    mov si,fnfMessage
+    call print
+    jmp end
+  .isDirectory mov si,isDirMessage
+    call print
+    
+end: mov ah,0x6
+  int 0x20
 
-fnfstr: db "long: File not found",0x0
+print: mov ah,0xe
+  .printLoop mov al,[es:si]
+    cmp al,0x0
+    je .end
+    int 0x10
+    inc si
+    jmp .printLoop
+  .end ret
+  
+fnfMessage: db "long: File not found",0xa,0xd,0x0
+isDirMessage: db "long: Is a directory",0xa,0xd,0x0
 rowcount: db 0x0
 colcount: db 0x0
 leaving: db 0x0
 more: db "Press any key to view more, or esc to quit",0x0
 spaces: db 0xd,"                                          ",0xd,0x0
+newline: db 0xa,0xd,0x0

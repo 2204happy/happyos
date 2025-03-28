@@ -4,5 +4,5 @@
 03=directory
 
 free = 01,sector,size
-used = 02,sector,size,parentdirectoryid
-directory = 03,directoryid,null,parentdirectoryid
+used = 02,id(2 bytes),parentdirectoryid(2 bytes),sector(2 bytes),size(1 byte)
+directory = 03,directoryid(2 bytes),parentdirectoryid(2 bytes),null(3 bytes)

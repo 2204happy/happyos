@@ -13,7 +13,7 @@ imaginaryHeight equ 0xb068
 zList equ 0xb080
 
 
-org 0xa000
+org 0x0000
 
 
 
@@ -61,7 +61,8 @@ quit:
   mov es,ax
   mov ax,0x3
   int 0x10
-  ret
+  mov ah,0x6
+  int 0x20
 
 drawSet:
   fld qword [realsWidth]
