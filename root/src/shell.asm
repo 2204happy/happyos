@@ -196,16 +196,29 @@ clear:
   mov al,0x3
   int 0x10
   ret
+  
+pwd:
+  mov di,0x5600
+  mov ah,0xa
+  mov dx,[curdir]
+  int 0x20
+  mov si,di
+  call print
+  mov si,newline
+  call print
+  ret
+  
 
 unknowncmd: db "No such command or file",0xa,0x0
 loadedmsg: db "Loaded!",0xa,0x0
 newline: db 0xa,0x0
 entercommandstring: db ">",0x0
-commands: dw shutdownstring,doshutdown,rebootstring,doreboot,clearstring,clear,cdstring,chdir,0x0
+commands: dw shutdownstring,doshutdown,rebootstring,doreboot,clearstring,clear,cdstring,chdir,pwdstr,pwd,0x0
 cdstring: db "cd",0x0
 shutdownstring: db "shutdown",0x0
 rebootstring: db "reboot",0x0
 clearstring: db "clear",0x0
+pwdstr: db "pwd",0x0
 nosuchdir: db "No such directory",0xa,0x0
 curdir: dw 0x0
 bindir: dw 0x0

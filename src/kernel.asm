@@ -45,6 +45,7 @@ int20:
 ;ah = 0x7: getDirListing
 ;ah = 0x8: resolveFullPath
 ;ah = 0x9: printHexByte
+;ah = 0xa: getFullFileDirPath
 
   push ds
   pusha
@@ -207,11 +208,6 @@ int20:
     mov dh,[.head]
     mov dl,[diskID]
     int 0x13
-    mov ah,0x1
-    int 0x13
-    mov al,ah
-    mov ah,0x9
-    int 0x20
     popa
     pop ds
     iret
@@ -220,7 +216,7 @@ int20:
     .head db 0x0
     .sector db 0x0
     
-  getFileDirName: ;dx = dir name, es:di=copy buffer;
+  getFileDirName: ;dx = file/dir id, es:di=copy buffer;
     mov si,0x4000
     .findFileDirEntry mov ah,[si]
       cmp ah,0x0
@@ -335,6 +331,47 @@ int20:
         add al,0x7
       .notLetter int 0x10
       ret
+      
+  getFullFileDirPath: ;es:di = write buffer, dx = directory/file id
+    cmp dx,0x0
+    jne .notRoot
+      mov [es:di],byte "/"
+      inc di
+      mov [es:di],byte 0x0
+      jmp .end
+    .notRoot mov ax,es
+    mov [.savees],ax
+    mov ax,ds
+    mov es,ax
+    mov bx,0x0
+    .getDirParentsLoop:
+      push dx
+      inc bx
+      mov ah,0x1
+      mov si,parentDirStr
+      int 0x20
+      cmp dx,0x0
+      je .gdplEnd
+      jmp .getDirParentsLoop
+    .gdplEnd mov ax,[.savees]
+    mov es,ax
+    mov ah,0x4
+    .getDirNamesLoop cmp bx,0x0
+      je .end
+      mov [es:di],byte "/"
+      inc di
+      pop dx
+      int 0x20
+      .eosLoop cmp [es:di],byte 0x0
+        je .elEnd
+        inc di
+        jmp .eosLoop
+      .elEnd dec bx
+      jmp .getDirNamesLoop
+    .end popa
+    pop ds
+    iret
+    .savees dw 0x0
     
   printTest: pusha
     mov ah,0xe
@@ -382,7 +419,7 @@ int20:
 
   saveSPArray: times 0x10 dw 0x0
   saveSPArrayPtr: db 0x0
-  functionArray: dw smile,getFileDirID,getFileSizeLoc,loadFile,getFileDirName,runProgram,returnFromProgram,getDirListing,resolveFullPath,printHexByte,0x0
+  functionArray: dw smile,getFileDirID,getFileSizeLoc,loadFile,getFileDirName,runProgram,returnFromProgram,getDirListing,resolveFullPath,printHexByte,getFullFileDirPath,0x0
   sectorsPerTrack: db 0x12
   diskID: db 0x0
   curDirStr: db ".",0x0
