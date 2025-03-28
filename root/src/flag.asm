@@ -37,6 +37,7 @@ call genflag
 mov [bufferheight],byte 0xc8
 mov [ujdrawlb],word 0x0000
 mov [ujdrawub],word 0x7fff
+call drawbg
 call dispflag
 mov ax,0x0
 mov es,ax
@@ -203,18 +204,6 @@ ujdrawpx: mov cl,0x0
   .ujdrawpxend ret
     
 
-
-lrgscstar: db 0b00000100,0b01001100,0b01111100,0b00111111,0b11111110
-smlscstar: db 0b01000011,0b11111100
-ujparams: dw 0x5000,0x0e0f,0x000d,0x0e21,0x280f,0x0000,0x5000,0x0804,0x0010,0x0824,0x2804,0x0000
-
-
-
-cwthstar: db 0b00000000,0b00000100,0b00000000,0b00000000,0b01100000,0b00000010,0b00000011,0b00000000,0b00011000,0b00111000,0b00000000,0b01110001,0b11000000,0b00000011,0b11011110,0b00000000,0b00011111,0b11110001,0b11100000,0b01111111,0b11111110,0b00000011,0b11111111,0b11100000,0b01111111,0b11111110,0b00111111,0b11111111,0b11100000
-
-bufferheight: db 0x50
-
-
 starcpy: mov ch,0x0
   mul byte [bufferheight]
   add ax,cx
@@ -261,7 +250,7 @@ starcpy: mov ch,0x0
 
 
 
-dispflag:
+drawbg:
   mov bx,0x0
   .skyloop mov [es:bx],byte 0x0b
     inc bx
@@ -282,8 +271,26 @@ dispflag:
       add bx,0x0138
     .nffl cmp bx,0xdb0b
     jne .flagpoleloop
-  mov bx,0x1f93
-  mov ax,0
+  ret
+
+dispflag:
+  mov si,bgredrawaddrcutoffs
+  .bgloopouter cmp [si],word 0x0
+    je .bgloopend
+    mov bx,[si]
+    add si,0x2
+    .bgloop mov ax,0x0
+      .bgloopInner mov [es:bx],byte 0x0b
+        inc bx
+        inc ax
+        cmp ax,0xa0
+        jne .bgloopInner
+      add bx,0xa0
+      cmp bx,[si]
+      jne .bgloop
+      add si,0x2
+      jmp .bgloopouter
+  .bgloopend mov bx,0x1f93
   mov si,0x0
   .flagloop fild word [numin]
     fidiv word [xscale]
@@ -345,7 +352,17 @@ dispflag:
     jne .checkkbd
     ret
   
-  
+  lrgscstar: db 0b00000100,0b01001100,0b01111100,0b00111111,0b11111110
+  smlscstar: db 0b01000011,0b11111100
+  ujparams: dw 0x5000,0x0e0f,0x000d,0x0e21,0x280f,0x0000,0x5000,0x0804,0x0010,0x0824,0x2804,0x0000
+
+
+
+  cwthstar: db 0b00000000,0b00000100,0b00000000,0b00000000,0b01100000,0b00000010,0b00000011,0b00000000,0b00011000,0b00111000,0b00000000,0b01110001,0b11000000,0b00000011,0b11011110,0b00000000,0b00011111,0b11110001,0b11100000,0b01111111,0b11111110,0b00000011,0b11111111,0b11100000,0b01111111,0b11111110,0b00111111,0b11111111,0b11100000
+
+  bufferheight: db 0x50
+
   xscale: dw 0x10
   dir: dw 0x1
+  bgredrawaddrcutoffs: dw 0x1813,0x2713,0x7c13,0x8b13,0x0
 
