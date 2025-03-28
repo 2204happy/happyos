@@ -44,6 +44,7 @@ int20:
 ;ah = 0x6: returnFromProgram
 ;ah = 0x7: getDirListing
 ;ah = 0x8: resolveFullPath
+;ah = 0x9: printHexByte
 
   push ds
   pusha
@@ -196,6 +197,11 @@ int20:
     inc ah
     mov [.sector],ah
     
+    
+    mov di,0x0
+    mov ax,0x46
+    push ax
+    popf
     mov ah,0x2
     mov al,cl
     mov ch,[.track]
@@ -305,6 +311,27 @@ int20:
     
     .savedx dw 0x0
     .savecl db 0x0
+  
+  printHexByte: ;al = byte to print
+    mov ah,0xe
+    push ax
+    shr al,0x4
+    call .printHexNibble
+    pop ax
+    and al,0x0f
+    call .printHexNibble
+    mov al," "
+    int 0x10
+    popa
+    pop ds
+    iret
+    
+    .printHexNibble add al,0x30
+      cmp al,0x3a
+      jl .notLetter
+        add al,0x7
+      .notLetter int 0x10
+      ret
     
   printTest: pusha
     mov ah,0xe
@@ -352,7 +379,7 @@ int20:
 
   saveSPArray: times 0x10 dw 0x0
   saveSPArrayPtr: db 0x0
-  functionArray: dw smile,getFileDirID,getFileSizeLoc,loadFile,getFileDirName,runProgram,returnFromProgram,getDirListing,resolveFullPath,0x0
+  functionArray: dw smile,getFileDirID,getFileSizeLoc,loadFile,getFileDirName,runProgram,returnFromProgram,getDirListing,resolveFullPath,printHexByte,0x0
   sectorsPerTrack: db 0x12
   diskID: db 0x0
   curDirStr: db ".",0x0
