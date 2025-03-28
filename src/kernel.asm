@@ -24,7 +24,7 @@ mov ah,0x1
 int 0x20
 mov ax,0x5000
 mov es,ax
-mov si,0x0
+mov di,0x0
 mov ah,0x3
 int 0x20
 
@@ -197,8 +197,6 @@ int20:
     inc ah
     mov [.sector],ah
     
-    
-    mov di,0x0
     mov ax,0x46
     push ax
     popf
@@ -209,6 +207,11 @@ int20:
     mov dh,[.head]
     mov dl,[diskID]
     int 0x13
+    mov ah,0x1
+    int 0x13
+    mov al,ah
+    mov ah,0x9
+    int 0x20
     popa
     pop ds
     iret
