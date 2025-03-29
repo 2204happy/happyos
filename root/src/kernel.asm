@@ -182,6 +182,8 @@ int20:
   loadFile: ;dx = file id, es:di = load location
     mov ah,0x2
     int 0x20
+    mov [.blocks],cl
+    
     mov bx,di
     mov ax,dx
     mov ch,[sectorsPerTrack]
@@ -192,29 +194,73 @@ int20:
     mov al,ah
     mov ah,0x0
     
-    mov ch,[cs:sectorsPerTrack]
+    mov ch,[sectorsPerTrack]
     idiv ch
     mov [.head],al
     inc ah
     mov [.sector],ah
     
-    mov ax,0x46
-    push ax
-    popf
     mov ah,0x2
-    mov al,cl
     mov ch,[.track]
     mov cl,[.sector]
     mov dh,[.head]
     mov dl,[diskID]
-    int 0x13
-    popa
+    
+    mov al,[.sector]
+    dec al
+    add al,[.blocks]
+    cmp al,[sectorsPerTrack]
+    jg .loadInParts
+      mov al,[.blocks]
+      int 0x13
+      jmp .end
+      
+    .loadInParts mov al,[.blocks]
+      mov [.blocksLeft],al
+      mov al,[sectorsPerTrack]
+      sub al,[.sector]
+      inc al
+      sub [.blocksLeft],al
+      push ax
+      int 0x13
+      pop ax
+      push dx
+      mul word [.sectorSize]
+      pop dx
+      add bx,ax
+      mov cl,0x1
+      .lipLoop cmp [.blocksLeft],byte 0x0
+        je .end
+        inc dh
+        cmp dh,0x2
+        jne .notNewTrack
+          mov dh,0x0
+          inc ch
+        .notNewTrack mov al,[.blocksLeft]
+          cmp al,[sectorsPerTrack]
+          jng .lastSection
+            mov al,[sectorsPerTrack]
+          .lastSection sub [.blocksLeft],al
+          push ax
+          mov ah,0x2
+          int 0x13
+          pop ax
+          push dx
+          mul word [.sectorSize]
+          pop dx
+          add bx,ax
+          jmp .lipLoop
+
+    .end popa
     pop ds
     iret
     
     .track db 0x0
     .head db 0x0
     .sector db 0x0
+    .blocks db 0x0
+    .blocksLeft db 0x0
+    .sectorSize dw 0x200
     
   getFileDirName: ;dx = file/dir id, es:di=copy buffer;
     mov si,0x4000
