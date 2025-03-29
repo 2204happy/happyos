@@ -188,8 +188,9 @@ doshutdown:
   int 0x15
 
 doreboot:
-  call clear
-  jmp 0x7c00
+  push 0x0ffff
+  push 0x0000
+  retf
 
 clear:
   mov ah,0x0
