@@ -4,6 +4,6 @@
 03=directory
 04=unused but not end of fs
 
-free = 01,sector,size
+free = 01,null (4 bytes),sector (2 bytes),size (2 bytes)
 used = 02,id(2 bytes),parentdirectoryid(2 bytes),sector(2 bytes),size(1 byte)
 directory = 03,directoryid(2 bytes),parentdirectoryid(2 bytes),null(3 bytes)

@@ -1,25 +1,32 @@
 buffer equ 0x2000
+fsStart equ 0x4000
+fsEnd equ 0x4be0
 
 bits 16
 
 
-mov [diskID],dl
-mov bx,0x80
-mov [bx],word int20
-add bx,0x2
-mov [bx],word 0x7000
 
 
 mov ax,cs
 mov ds,ax
+mov ax,0x0
+mov es,ax
 
+
+mov [diskID],dl
+mov bx,0x80
+mov [es:bx],word int20
+add bx,0x2
+mov [es:bx],word 0x7000
+
+mov ax,0x7000
+mov es,ax
+
+mov [0x4c00],byte 0x0
 
 mov ah,0x0
 int 0x20
 
-
-mov ax,0x7000
-mov es,ax
 mov ah,0x8
 mov si,exec
 mov dx,0x0
@@ -29,6 +36,8 @@ mov es,ax
 mov di,0x0
 mov ah,0x3
 int 0x20
+
+
 
 jmp 0x5000:0x0000
 
@@ -51,6 +60,7 @@ int20:
 ;ah = 0xb: writeFile
 ;ah = 0xc: renameFileDir
 ;ah = 0xd: removeFileDir
+;ah = 0xe: makeFile
 
   push ds
   pusha
@@ -90,7 +100,7 @@ int20:
     .notCurDir mov si,cx
     mov bx,parentDirStr
     call cmpStr
-    mov bx,0x4000
+    mov bx,fsStart
     cmp ah,0x1
     jne .noDots
     mov [.lookingForParentDir],byte 0x1
@@ -226,7 +236,7 @@ int20:
     iret
     
   getDirListing: ;es:di=id buffer, dx=directory id
-    mov bx,0x4000
+    mov bx,fsStart
     .checkEntryLoop mov ah,[bx]
       cmp ah,0x0
       je .done
@@ -258,8 +268,6 @@ int20:
         jmp .done
     .rpLoop mov ah,0x1
       int 0x20
-      cmp cl,0x1
-      jne .done
       cmp [es:si],byte 0x0
       je .done
       inc si
@@ -396,8 +404,14 @@ int20:
       je .canDelete
       mov [.returnStatus],byte 0x2
       jmp .end
-    .canDelete mov [bx],byte 0x4
-      call saveFs
+    .canDelete cmp [bx],byte 0x3
+      je .isDir
+        mov [bx],byte 0x1
+        add bx,0x8
+        mov [bx],byte 0x0
+      jmp .wasFile
+      .isDir mov [bx],byte 0x4
+      .wasFile call saveFs
       mov [.returnStatus],byte 0x0
       jmp .end
     
@@ -409,8 +423,36 @@ int20:
     
     .returnStatus db 0x0
     
+  makeFile: ;es:si = file name, dx = parent directory, al = size, returns ah = 0x0 for success, ah = 0x1 for failure
+    mov cx,[fsEnd]
+    cmp cx,0x7fff
+    jne .enoughIDs
+      mov [.returnStatus],byte 0x1
+      jmp .end
+    .enoughIDs push si
+      call reserveEmptySpace
+      pop si
+      cmp bx,0x0
+      jne .noError
+        mov [.returnStatus],byte 0x1
+        jmp .end
+      .noError add bx,0x1
+        mov [bx],cx
+        add bx,0x2
+        mov [bx],dx
+        add bx,0x5
+        mov di,bx
+        call copyStrFromUser
+        call saveFs
+        mov [.returnStatus],byte 0x0
+    .end popa
+      mov ah,[.returnStatus]
+      pop ds
+      iret
+      .returnStatus db 0x0
+    
   getFileDirEntry: ;dx = file id, returns bx = pointer to entry, ah=0x0 for success, ah = 0x1 for no file/dir found
-    mov bx,0x4000
+    mov bx,fsStart
     .findEntryLoop cmp [bx],byte 0x0
       je .noFile
       mov ah,[bx]
@@ -522,11 +564,60 @@ int20:
     mov es,ax
     mov ah,0x8
     int 0x20
-    mov si,0x4000
+    mov si,fsStart
     mov ah,0xb
     int 0x20
     pop es
     ret
+    
+  getEmptyFSEntry: ;returns bx = pointer to empty entry, bx=0x0 if no entries left
+    mov bx,fsStart
+    .getEntryLoop mov ah,[bx]
+      and ah,0x3
+      jz .end
+      add bx,0x20
+      jmp .getEntryLoop
+    .end cmp bx,0x4c00
+    jl .foundEntry
+      mov bx,0x0
+    .foundEntry ret
+    
+  reserveEmptySpace: ;al = number of blocks, returns bx=pointer to entry, bx=0x0 on error
+    mov bx,0x0
+    mov ah,0x0
+    mov si,fsStart
+    .findSpaceLoop cmp [si],byte 0x0
+      je .end
+      cmp [si],byte 0x1
+      jne .notSpace
+        add si,0x7
+        cmp [si],ax
+        jl .notEnoughSpace
+          je .perfectFit
+            call getEmptyFSEntry
+            cmp bx,0x0
+            je .end
+            add bx,0x7
+            mov [bx],al
+            sub [si],ax
+            sub si,0x2
+            sub bx,0x2
+            push ax
+            mov ax,[si]
+            mov [bx],ax
+            pop ax
+            sub bx,0x5
+            add [si],ax
+            mov [bx],byte 0x2
+            jmp .end
+          .perfectFit sub si,0x7
+            mov [si],byte 0x2
+            mov bx,si
+            jmp .end
+      .notEnoughSpace sub si,0x7
+      .notSpace add si,0x20
+      jmp .findSpaceLoop
+    .end ret
     
   printTest: pusha
     mov ah,0xe
@@ -593,7 +684,7 @@ int20:
 
   saveSPArray: times 0x10 dw 0x0
   saveSPArrayPtr: db 0x0
-  functionArray: dw smile,getFileDirID,getFileSizeLoc,loadFile,getFileDirName,runProgram,returnFromProgram,getDirListing,resolveFullPath,printHexByte,getFullFileDirPath,writeFile,renameFileDir,removeFileDir,0x0
+  functionArray: dw smile,getFileDirID,getFileSizeLoc,loadFile,getFileDirName,runProgram,returnFromProgram,getDirListing,resolveFullPath,printHexByte,getFullFileDirPath,writeFile,renameFileDir,removeFileDir,makeFile,0x0
   sectorsPerTrack: db 0x12
   diskID: db 0x0
   curDirStr: db ".",0x0

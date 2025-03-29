@@ -104,10 +104,18 @@ else:
      blkptr+=size
      fsptr+=32
      nextFileID+=1
+
+  #record free space
+  freespace = int(blockamnt - blkptr)
   fs[fsptr] = 1
-  fs[fsptr+1] = int(blkptr)
-  fs[fsptr+2] = min(int(blockamnt - blkptr),255)
- 
+  fs[fsptr+5] = int(blkptr)&255
+  fs[fsptr+6] = int(blkptr>>8)&255
+  fs[fsptr+7] = int(freespace)&255
+  fs[fsptr+8] = int(freespace)&255
+  
+  fs[0xbe0] = int(nextFileID)&255
+  fs[0xbe1] = int(nextFileID>>8)&255
+  
   
   #write new fs.sys
   f = open(root+"/sys/fs.sys","wb")
