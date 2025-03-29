@@ -2,6 +2,7 @@
 01=free
 02=used
 03=directory
+04=unused but not end of fs
 
 free = 01,sector,size
 used = 02,id(2 bytes),parentdirectoryid(2 bytes),sector(2 bytes),size(1 byte)

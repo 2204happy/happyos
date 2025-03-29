@@ -143,7 +143,6 @@ dorun:
     ret
 
 chdir:
-  mov ch,0x0
   call resolvedir
   cmp cl,0x1
   je .validdir
@@ -152,6 +151,48 @@ chdir:
     ret
   .validdir mov [curdir],dx
     ret
+    
+rename:
+  call resolvedir
+  cmp cl,0x2
+  jne .validFileDir
+    mov si,nosuchfiledir
+    call print
+    ret
+  .validFileDir call getNextString
+    cmp [si],byte 0x0
+    je .noname
+    mov ah,0xc
+    int 0x20
+    cmp ah,0x0
+    je .success
+      mov si,toolongstr
+      call print
+    .success ret
+    
+  .noname mov si,nonamestr
+    call print
+    ret
+    
+rm:
+  call resolvedir
+  cmp cl,0x2
+  jne .validFileDir
+    mov si,nosuchfiledir
+    call print
+    ret
+  .validFileDir cmp [curdir],dx
+    jne .notInRmDir
+      mov si,leaveDirMsg
+      call print
+      ret
+    .notInRmDir mov ah,0xd
+    int 0x20
+    cmp ah,0x0
+    je .success
+      mov si,dirnotempty
+      call print
+    .success ret
 
 resolvedir:
   mov dx,[curdir]
@@ -209,19 +250,33 @@ pwd:
   call print
   ret
   
+getNextString: cmp [si],byte 0x0
+  je .end
+  inc si
+  jmp getNextString
+  .end inc si
+  ret
+  
 
 unknowncmd: db "No such command or file",0xa,0x0
 loadedmsg: db "Loaded!",0xa,0x0
 newline: db 0xa,0x0
 entercommandstring: db ">",0x0
-commands: dw shutdownstring,doshutdown,rebootstring,doreboot,clearstring,clear,cdstring,chdir,pwdstr,pwd,0x0
+commands: dw shutdownstring,doshutdown,rebootstring,doreboot,clearstring,clear,cdstring,chdir,pwdstr,pwd,renamestring,rename,rmstr,rm,0x0
 cdstring: db "cd",0x0
 shutdownstring: db "shutdown",0x0
 rebootstring: db "reboot",0x0
 clearstring: db "clear",0x0
 pwdstr: db "pwd",0x0
+rmstr: db "rm",0x0
+renamestring: db "rename",0x0
 nosuchdir: db "No such directory",0xa,0x0
+nosuchfiledir: db "No such file or directory",0xa,0x0
 curdir: dw 0x0
 bindir: dw 0x0
 binstr: db "bin",0x0
 nobindirstr: db "No binaries directory found!",0xa,0x0
+nonamestr: db "No name provided",0xa,0x0
+toolongstr: db "Name too long",0xa,0x0
+dirnotempty: db "Directory not empty",0xa,0x0
+leaveDirMsg: db "Please leave the directory before you delete it",0xa,0x0

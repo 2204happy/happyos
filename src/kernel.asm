@@ -1,3 +1,5 @@
+buffer equ 0x2000
+
 bits 16
 
 
@@ -7,20 +9,20 @@ mov [bx],word int20
 add bx,0x2
 mov [bx],word 0x7000
 
+
 mov ax,cs
 mov ds,ax
+
 
 mov ah,0x0
 int 0x20
 
+
 mov ax,0x7000
 mov es,ax
-mov ah,0x1
+mov ah,0x8
 mov si,exec
 mov dx,0x0
-int 0x20
-inc si
-mov ah,0x1
 int 0x20
 mov ax,0x5000
 mov es,ax
@@ -46,6 +48,9 @@ int20:
 ;ah = 0x8: resolveFullPath
 ;ah = 0x9: printHexByte
 ;ah = 0xa: getFullFileDirPath
+;ah = 0xb: writeFile
+;ah = 0xc: renameFileDir
+;ah = 0xd: removeFileDir
 
   push ds
   pusha
@@ -146,18 +151,12 @@ int20:
       
       
   getFileSizeLoc: ;dx = file id, returns cl = size, dx = location
-    mov bx,0x4000
-    .checkEntryLoop mov ah,[bx]
-      cmp ah,0x0
-      je .noFileFound
-      cmp ah,0x2
-      jne .notFileEntry
-      inc bx
-      cmp [bx],dx
-      je .fileFound
-      dec bx
-      .notFileEntry add bx,0x20
-      jmp .checkEntryLoop
+    call getFileDirEntry
+    cmp ah,0x1
+    je .noFileFound
+    cmp [bx],byte 0x2
+    jne .noFileFound
+    jmp .fileFound
       
     .noFileFound popa
       mov cl,0xff
@@ -165,7 +164,7 @@ int20:
       pop ds
       iret
       
-    .fileFound add bx,0x4
+    .fileFound add bx,0x5
       mov dx,[bx]
       add bx,0x2
       mov cl,[bx]
@@ -178,111 +177,29 @@ int20:
       iret
       .savedx dw 0x0
       .savecl db 0x0
-  
+      
   loadFile: ;dx = file id, es:di = load location
     mov ah,0x2
-    int 0x20
-    mov [.blocks],cl
-    
     mov bx,di
-    mov ax,dx
-    mov ch,[sectorsPerTrack]
-    shl ch,0x1
-    idiv ch
-    mov [.track],al
-    
-    mov al,ah
-    mov ah,0x0
-    
-    mov ch,[sectorsPerTrack]
-    idiv ch
-    mov [.head],al
-    inc ah
-    mov [.sector],ah
-    
-    mov ah,0x2
-    mov ch,[.track]
-    mov cl,[.sector]
-    mov dh,[.head]
-    mov dl,[diskID]
-    
-    mov al,[.sector]
-    dec al
-    add al,[.blocks]
-    cmp al,[sectorsPerTrack]
-    jg .loadInParts
-      mov al,[.blocks]
-      int 0x13
-      jmp .end
-      
-    .loadInParts mov al,[.blocks]
-      mov [.blocksLeft],al
-      mov al,[sectorsPerTrack]
-      sub al,[.sector]
-      inc al
-      sub [.blocksLeft],al
-      push ax
-      int 0x13
-      pop ax
-      push dx
-      mul word [.sectorSize]
-      pop dx
-      add bx,ax
-      mov cl,0x1
-      .lipLoop cmp [.blocksLeft],byte 0x0
-        je .end
-        inc dh
-        cmp dh,0x2
-        jne .notNewTrack
-          mov dh,0x0
-          inc ch
-        .notNewTrack mov al,[.blocksLeft]
-          cmp al,[sectorsPerTrack]
-          jng .lastSection
-            mov al,[sectorsPerTrack]
-          .lastSection sub [.blocksLeft],al
-          push ax
-          mov ah,0x2
-          int 0x13
-          pop ax
-          push dx
-          mul word [.sectorSize]
-          pop dx
-          add bx,ax
-          jmp .lipLoop
+    call readWriteFile
+    popa
+    pop ds
+    iret
 
-    .end popa
+    
+  getFileDirName: ;dx = file/dir id, es:di=copy buffer; returns ah = 0x0 on success, al = 0x1 on no file found
+    call getFileDirEntry
+    cmp ah,0x1
+    je .end
+    add bx,0x8
+    mov si,bx
+    call copyStr
+    .end mov [.saveah],ah
+    popa
+    mov ah,[.saveah]
     pop ds
     iret
-    
-    .track db 0x0
-    .head db 0x0
-    .sector db 0x0
-    .blocks db 0x0
-    .blocksLeft db 0x0
-    .sectorSize dw 0x200
-    
-  getFileDirName: ;dx = file/dir id, es:di=copy buffer;
-    mov si,0x4000
-    .findFileDirEntry mov ah,[si]
-      cmp ah,0x0
-      je .end
-      and ah,0x2
-      cmp ah,0x2
-      jne .notFileDirEntry
-        inc si
-        cmp [si],dx
-        jne .wrongFileDirEntry
-          add si,0x7
-          call copyStr
-          jmp .end
-      .wrongFileDirEntry dec si
-      .notFileDirEntry add si,0x20
-      jmp .findFileDirEntry
-    
-    .end popa
-    pop ds
-    iret
+    .saveah db 0x0
     
   runProgram: ;es:si = command line, cx=code segment for program; dx=working directory
     mov [address+2],cx
@@ -343,9 +260,12 @@ int20:
       int 0x20
       cmp cl,0x1
       jne .done
+      cmp [es:si],byte 0x0
+      je .done
       inc si
       cmp [es:si],byte 0x0
-      jne .rpLoop
+      je .done
+      jmp .rpLoop
     .done mov [.savedx],dx
     mov [.savecl],cl
     popa
@@ -401,12 +321,12 @@ int20:
       jmp .getDirParentsLoop
     .gdplEnd mov ax,[.savees]
     mov es,ax
-    mov ah,0x4
     .getDirNamesLoop cmp bx,0x0
       je .end
       mov [es:di],byte "/"
       inc di
       pop dx
+      mov ah,0x4
       int 0x20
       .eosLoop cmp [es:di],byte 0x0
         je .elEnd
@@ -418,6 +338,195 @@ int20:
     pop ds
     iret
     .savees dw 0x0
+    
+  writeFile: ;dx = file id, es:si = load location
+    mov ah,0x3
+    mov bx,si
+    call readWriteFile
+    popa
+    pop ds
+    iret
+    
+  renameFileDir: ;dx = file/dir id, es:si = new name, returns ah = 0x0 on success, ah = 0x1 on file not found, ah = 0x2 on name too long/short
+    push si
+    call strlen
+    pop si
+    cmp ah,0x17
+    jg .tooLongShort
+    cmp ah,0x0
+    je .tooLongShort
+      
+    call getFileDirEntry
+    
+    cmp ah,0x1
+    je .fnf
+    
+    add bx,0x8
+    mov di,bx
+    call copyStrFromUser
+    call saveFs
+    mov [.returnStatus],byte 0x0
+    
+    jmp .end
+    
+    .tooLongShort mov [.returnStatus],byte 0x2
+      jmp .end
+    .fnf mov [.returnStatus],byte 0x1
+    .end popa
+      mov ah,[.returnStatus]
+      pop ds
+      iret
+      
+    .returnStatus db 0x0
+    
+  removeFileDir: ;dx = file/dir id returns ah = 0x0 on success, ah = 0x1 on file not found, ah = 0x2 on dir not empty
+    call getFileDirEntry
+    cmp ah,0x1
+    je .fnf
+    cmp [bx],byte 0x3
+    jne .canDelete
+      push es
+      mov ax,cs
+      mov es,ax
+      mov ah,0x7
+      mov di,buffer
+      int 0x20
+      pop es
+      cmp [di],word 0x0
+      je .canDelete
+      mov [.returnStatus],byte 0x2
+      jmp .end
+    .canDelete mov [bx],byte 0x4
+      call saveFs
+      mov [.returnStatus],byte 0x0
+      jmp .end
+    
+    .fnf mov [.returnStatus],byte 0x1
+    .end popa
+      mov ah,[.returnStatus]
+      pop ds
+      iret
+    
+    .returnStatus db 0x0
+    
+  getFileDirEntry: ;dx = file id, returns bx = pointer to entry, ah=0x0 for success, ah = 0x1 for no file/dir found
+    mov bx,0x4000
+    .findEntryLoop cmp [bx],byte 0x0
+      je .noFile
+      mov ah,[bx]
+      and ah,0x2
+      jz .notFileDirEntry
+        inc bx
+        cmp [bx],dx
+        je .fileFound
+        dec bx
+      .notFileDirEntry add bx,0x20
+      jmp .findEntryLoop
+      
+    .noFile mov ah,0x1
+      ret
+      
+    .fileFound dec bx
+      mov ah,0x0
+      ret
+    
+  readWriteFile: ;dx = file id, es:bx = buffer pointer; ah = 0x2 = read, ah = 0x3 = write
+    mov [.rwmode],ah
+    
+    mov ah,0x2
+    int 0x20
+    
+    mov [.blocks],cl
+
+    mov ax,dx
+    mov ch,[sectorsPerTrack]
+    shl ch,0x1
+    idiv ch
+    mov [.track],al
+    
+    mov al,ah
+    mov ah,0x0
+    
+    mov ch,[sectorsPerTrack]
+    idiv ch
+    mov [.head],al
+    inc ah
+    mov [.sector],ah
+    
+    mov ah,[.rwmode]
+    mov ch,[.track]
+    mov cl,[.sector]
+    mov dh,[.head]
+    mov dl,[diskID]
+    
+    mov al,[.sector]
+    dec al
+    add al,[.blocks]
+    cmp al,[sectorsPerTrack]
+    jg .loadInParts
+      mov al,[.blocks]
+      cmp ah,0x3
+      int 0x13
+      jmp .end
+      
+    .loadInParts mov al,[.blocks]
+      mov [.blocksLeft],al
+      mov al,[sectorsPerTrack]
+      sub al,[.sector]
+      inc al
+      sub [.blocksLeft],al
+      push ax
+      int 0x13
+      pop ax
+      push dx
+      mul word [.sectorSize]
+      pop dx
+      add bx,ax
+      mov cl,0x1
+      .lipLoop cmp [.blocksLeft],byte 0x0
+        je .end
+        inc dh
+        cmp dh,0x2
+        jne .notNewTrack
+          mov dh,0x0
+          inc ch
+        .notNewTrack mov al,[.blocksLeft]
+          cmp al,[sectorsPerTrack]
+          jng .lastSection
+            mov al,[sectorsPerTrack]
+          .lastSection sub [.blocksLeft],al
+          push ax
+          mov ah,[.rwmode]
+          int 0x13
+          pop ax
+          push dx
+          mul word [.sectorSize]
+          pop dx
+          add bx,ax
+          jmp .lipLoop
+
+    .end ret
+    
+    .track db 0x0
+    .head db 0x0
+    .sector db 0x0
+    .blocks db 0x0
+    .blocksLeft db 0x0
+    .sectorSize dw 0x200
+    .rwmode db 0x0
+  
+  saveFs:
+    mov si,fspath
+    push es
+    mov ax,cs
+    mov es,ax
+    mov ah,0x8
+    int 0x20
+    mov si,0x4000
+    mov ah,0xb
+    int 0x20
+    pop es
+    ret
     
   printTest: pusha
     mov ah,0xe
@@ -461,14 +570,34 @@ int20:
     inc si
     inc di
     jmp copyStr
+    
+  copyStrFromUser: cmp [es:si],byte 0x0
+    jne .notDone
+      mov [di],byte 0x0
+      ret
+    .notDone mov ch,[es:si]
+    mov [di],ch
+    inc si
+    inc di
+    jmp copyStrFromUser
+    
+  strlen: mov ah,0x0; returns ah = strlen
+    .countloop mov al,[es:si]
+      cmp al,0x0
+      je .done
+      inc ah
+      inc si
+      jmp .countloop
+    .done ret
       
 
   saveSPArray: times 0x10 dw 0x0
   saveSPArrayPtr: db 0x0
-  functionArray: dw smile,getFileDirID,getFileSizeLoc,loadFile,getFileDirName,runProgram,returnFromProgram,getDirListing,resolveFullPath,printHexByte,getFullFileDirPath,0x0
+  functionArray: dw smile,getFileDirID,getFileSizeLoc,loadFile,getFileDirName,runProgram,returnFromProgram,getDirListing,resolveFullPath,printHexByte,getFullFileDirPath,writeFile,renameFileDir,removeFileDir,0x0
   sectorsPerTrack: db 0x12
   diskID: db 0x0
   curDirStr: db ".",0x0
   parentDirStr: db "..",0x0
+  fspath: db "/sys/fs.sys",0x0
   
-times 1024 - ($ - $$) db 0
+times 0x600 - ($ - $$) db 0

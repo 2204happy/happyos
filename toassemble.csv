@@ -9,3 +9,4 @@ src/inttest.asm,/bin/inttest
 src/shell.asm,/sys/shell.sys
 src/ls.asm,/bin/ls
 src/show.asm,/bin/show
+src/writetest.asm,/bin/writetest
