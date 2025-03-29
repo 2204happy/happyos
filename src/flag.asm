@@ -274,23 +274,7 @@ drawbg:
   ret
 
 dispflag:
-  mov si,bgredrawaddrcutoffs
-  .bgloopouter cmp [si],word 0x0
-    je .bgloopend
-    mov bx,[si]
-    add si,0x2
-    .bgloop mov ax,0x0
-      .bgloopInner mov [es:bx],byte 0x0b
-        inc bx
-        inc ax
-        cmp ax,0xa0
-        jne .bgloopInner
-      add bx,0xa0
-      cmp bx,[si]
-      jne .bgloop
-      add si,0x2
-      jmp .bgloopouter
-  .bgloopend mov bx,0x1f93
+  mov bx,0x1f93
   mov si,0x0
   .flagloop fild word [numin]
     fidiv word [xscale]
@@ -308,7 +292,10 @@ dispflag:
     add bx,ax
     jmp .nearfli
     .notopdir sub bx,ax
-    .nearfli mov ch,0x0
+    .nearfli sub bx,0x0140
+    mov [es:bx],byte 0x0b
+    add bx,0x0140
+    mov ch,0x0
     mov dl,0x0
     .flagloopinner mov cl,[fs:si]
       inc si
@@ -318,7 +305,8 @@ dispflag:
       cmp dl,0x50
       je .nl
       jmp .flagloopinner
-    .nl mov bx,0x1f93
+    .nl mov [es:bx],byte 0x0b
+    mov bx,0x1f93
     add bx,word [numin]
     cmp bx,0x2033
     jne .flagloop
